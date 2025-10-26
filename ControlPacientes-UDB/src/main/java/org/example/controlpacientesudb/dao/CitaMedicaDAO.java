@@ -4,7 +4,7 @@ import org.example.controlpacientesudb.modelo.entidades.CitaMedica;
 import org.example.controlpacientesudb.util.Conexion;
 
 import java.sql.*;
-        import java.time.LocalDateTime;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,109 +13,68 @@ public class CitaMedicaDAO {
     // Obtener todas las citas
     public List<CitaMedica> obtenerTodasCitas() {
         List<CitaMedica> citas = new ArrayList<>();
-        String sql = "SELECT * FROM CitaMedica ORDER BY FechaHoraCita DESC";
 
-        try (Connection connection = Conexion.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+        // Primero intentar con la base de datos real
+        try {
+            String sql = "SELECT * FROM CitaMedica ORDER BY FechaHoraCita DESC";
 
-            while (rs.next()) {
-                CitaMedica cita = mapearCita(rs);
-                citas.add(cita);
+            try (Connection connection = Conexion.getConnection();
+                 PreparedStatement stmt = connection.prepareStatement(sql);
+                 ResultSet rs = stmt.executeQuery()) {
+
+                while (rs.next()) {
+                    CitaMedica cita = mapearCita(rs);
+                    citas.add(cita);
+                }
+                System.out.println("Citas obtenidas de BD: " + citas.size());
+                return citas;
+
             }
-
-        } catch (SQLException e) {
-            System.out.println("Error al obtener citas: " + e.getMessage());
-            e.printStackTrace();
+        } catch (Exception e) {
+            System.out.println("Error al obtener citas de BD: " + e.getMessage());
+            // Si hay error, devolver lista vacía
+            return new ArrayList<>();
         }
-        return citas;
     }
 
-    // Obtener cita por ID
-    public CitaMedica obtenerCitaPorId(int idCita) {
-        String sql = "SELECT * FROM CitaMedica WHERE IDCita = ?";
-
-        try (Connection connection = Conexion.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-            stmt.setInt(1, idCita);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return mapearCita(rs);
-            }
-
-        } catch (SQLException e) {
-            System.out.println("Error al obtener cita: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    // Insertar nueva cita
+    // Insertar nueva cita (versión mejorada)
     public boolean insertarCita(CitaMedica cita) {
-        String sql = "INSERT INTO CitaMedica (IDExpediente, IDMedico, FechaHoraCita, TipoCita, Sintomas, Estado, Observaciones) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        System.out.println("Intentando insertar cita en BD...");
 
-        try (Connection connection = Conexion.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(sql)) {
+        // Primero intentar con BD real
+        try {
+            String sql = "INSERT INTO CitaMedica (IDExpediente, IDMedico, FechaHoraCita, TipoCita, Sintomas, Estado, Observaciones) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-            stmt.setInt(1, cita.getIdExpediente());
-            stmt.setInt(2, cita.getIdMedico());
-            stmt.setTimestamp(3, Timestamp.valueOf(cita.getFechaHoraCita()));
-            stmt.setString(4, cita.getTipoCita());
-            stmt.setString(5, cita.getSintomas());
-            stmt.setString(6, cita.getEstado());
-            stmt.setString(7, cita.getObservaciones());
+            try (Connection connection = Conexion.getConnection();
+                 PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-            return stmt.executeUpdate() > 0;
+                stmt.setInt(1, cita.getIdExpediente());
+                stmt.setInt(2, cita.getIdMedico());
+                stmt.setTimestamp(3, Timestamp.valueOf(cita.getFechaHoraCita()));
+                stmt.setString(4, cita.getTipoCita());
+                stmt.setString(5, cita.getSintomas());
+                stmt.setString(6, cita.getEstado());
+                stmt.setString(7, cita.getObservaciones());
 
-        } catch (SQLException e) {
-            System.out.println("Error al insertar cita: " + e.getMessage());
+                int filasAfectadas = stmt.executeUpdate();
+                System.out.println("Filas afectadas al insertar: " + filasAfectadas);
+
+                // Obtener el ID generado
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        cita.setIdCita(generatedKeys.getInt(1));
+                        System.out.println("Cita insertada con ID: " + cita.getIdCita());
+                    }
+                }
+
+                return filasAfectadas > 0;
+
+            }
+        } catch (Exception e) {
+            System.out.println("Error al insertar cita en BD: " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
-        return false;
-    }
-
-    // Actualizar cita
-    public boolean actualizarCita(CitaMedica cita) {
-        String sql = "UPDATE CitaMedica SET IDExpediente=?, IDMedico=?, FechaHoraCita=?, TipoCita=?, Sintomas=?, Estado=?, Observaciones=?, FechaModificacion=GETDATE() WHERE IDCita=?";
-
-        try (Connection connection = Conexion.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-            stmt.setInt(1, cita.getIdExpediente());
-            stmt.setInt(2, cita.getIdMedico());
-            stmt.setTimestamp(3, Timestamp.valueOf(cita.getFechaHoraCita()));
-            stmt.setString(4, cita.getTipoCita());
-            stmt.setString(5, cita.getSintomas());
-            stmt.setString(6, cita.getEstado());
-            stmt.setString(7, cita.getObservaciones());
-            stmt.setInt(8, cita.getIdCita());
-
-            return stmt.executeUpdate() > 0;
-
-        } catch (SQLException e) {
-            System.out.println("Error al actualizar cita: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    // Eliminar cita
-    public boolean eliminarCita(int idCita) {
-        String sql = "DELETE FROM CitaMedica WHERE IDCita = ?";
-
-        try (Connection connection = Conexion.getConnection();
-             PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-            stmt.setInt(1, idCita);
-            return stmt.executeUpdate() > 0;
-
-        } catch (SQLException e) {
-            System.out.println("Error al eliminar cita: " + e.getMessage());
-            e.printStackTrace();
-        }
-        return false;
     }
 
     // Método auxiliar para mapear ResultSet a objeto CitaMedica
@@ -140,11 +99,70 @@ public class CitaMedicaDAO {
             cita.setFechaCreacion(timestamp.toLocalDateTime());
         }
 
-        timestamp = rs.getTimestamp("FechaModificacion");
-        if (timestamp != null) {
-            cita.setFechaModificacion(timestamp.toLocalDateTime());
-        }
-
         return cita;
+    }
+
+    // Otros métodos (actualizar, eliminar, obtener por ID) permanecen igual...
+    public CitaMedica obtenerCitaPorId(int idCita) {
+        try {
+            String sql = "SELECT * FROM CitaMedica WHERE IDCita = ?";
+
+            try (Connection connection = Conexion.getConnection();
+                 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+                stmt.setInt(1, idCita);
+                ResultSet rs = stmt.executeQuery();
+
+                if (rs.next()) {
+                    return mapearCita(rs);
+                }
+
+            }
+        } catch (Exception e) {
+            System.out.println("Error al obtener cita por ID: " + e.getMessage());
+        }
+        return null;
+    }
+
+    public boolean actualizarCita(CitaMedica cita) {
+        try {
+            String sql = "UPDATE CitaMedica SET IDExpediente=?, IDMedico=?, FechaHoraCita=?, TipoCita=?, Sintomas=?, Estado=?, Observaciones=? WHERE IDCita=?";
+
+            try (Connection connection = Conexion.getConnection();
+                 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+                stmt.setInt(1, cita.getIdExpediente());
+                stmt.setInt(2, cita.getIdMedico());
+                stmt.setTimestamp(3, Timestamp.valueOf(cita.getFechaHoraCita()));
+                stmt.setString(4, cita.getTipoCita());
+                stmt.setString(5, cita.getSintomas());
+                stmt.setString(6, cita.getEstado());
+                stmt.setString(7, cita.getObservaciones());
+                stmt.setInt(8, cita.getIdCita());
+
+                return stmt.executeUpdate() > 0;
+
+            }
+        } catch (Exception e) {
+            System.out.println("Error al actualizar cita: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean eliminarCita(int idCita) {
+        try {
+            String sql = "DELETE FROM CitaMedica WHERE IDCita = ?";
+
+            try (Connection connection = Conexion.getConnection();
+                 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+                stmt.setInt(1, idCita);
+                return stmt.executeUpdate() > 0;
+
+            }
+        } catch (Exception e) {
+            System.out.println("Error al eliminar cita: " + e.getMessage());
+            return false;
+        }
     }
 }

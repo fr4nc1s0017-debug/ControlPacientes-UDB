@@ -1,5 +1,7 @@
 package org.example.controlpacientesudb.modelo.entidades;
+
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Visita {
     private int idVisita;
@@ -20,7 +22,7 @@ public class Visita {
         this.triage = triage;
     }
 
-    // Getters y Setters
+    // Getters y Setters (los que ya tenías)
     public int getIdVisita() { return idVisita; }
     public void setIdVisita(int idVisita) { this.idVisita = idVisita; }
 
@@ -38,4 +40,29 @@ public class Visita {
 
     public String getTriage() { return triage; }
     public void setTriage(String triage) { this.triage = triage; }
+
+    // Métodos auxiliares para formatear fechas
+    public String getFechaHoraFormateada() {
+        if (fechaHora != null) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            return fechaHora.format(formatter);
+        }
+        return "";
+    }
+
+    public String getSoloFecha() {
+        if (fechaHora != null) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            return fechaHora.format(formatter);
+        }
+        return "";
+    }
+
+    public String getSoloHora() {
+        if (fechaHora != null) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+            return fechaHora.format(formatter);
+        }
+        return "";
+    }
 }

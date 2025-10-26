@@ -1,23 +1,30 @@
 package org.example.controlpacientesudb.controller;
 
-import org.example.controlpacientesudb.dao.CitaMedicaDAO;
+import org.example.controlpacientesudb.dao.CitaMedicaMemoryDAO;
+import org.example.controlpacientesudb.dao.PacienteMemoryDAO;
 import org.example.controlpacientesudb.modelo.entidades.CitaMedica;
+import org.example.controlpacientesudb.modelo.entidades.Paciente;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.*;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @WebServlet("/citas-medicas")
 public class CitaMedicaServlet extends HttpServlet {
 
-    private CitaMedicaDAO citaDAO;
+    private CitaMedicaMemoryDAO memoryDAO;
+    private PacienteMemoryDAO pacienteDAO;
 
     @Override
     public void init() throws ServletException {
-        citaDAO = new CitaMedicaDAO();
+        memoryDAO = new CitaMedicaMemoryDAO();
+        pacienteDAO = new PacienteMemoryDAO();
+        System.out.println("=== SERVLET DE CITAS INICIALIZADO ===");
+        System.out.println("Sistema usando ALMACENAMIENTO EN MEMORIA TEMPORAL");
+        System.out.println("Los datos se perderán al reiniciar la aplicación");
     }
 
     @Override
@@ -26,9 +33,11 @@ public class CitaMedicaServlet extends HttpServlet {
 
         String action = request.getParameter("action");
 
+        System.out.println("=== PETICIÓN GET RECIBIDA ===");
+        System.out.println("Action: " + (action != null ? action : "listar"));
+
         try {
             if (action == null) {
-                // Mostrar lista de citas
                 listarCitas(request, response);
             } else {
                 switch (action) {
@@ -47,64 +56,49 @@ public class CitaMedicaServlet extends HttpServlet {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Error en CitaMedicaServlet: " + e.getMessage());
+            System.out.println("ERROR en doGet: " + e.getMessage());
             e.printStackTrace();
-            // En caso de error, mostrar datos de prueba
-            mostrarDatosPrueba(request, response);
+            response.sendRedirect("citas-medicas?error=Error+en+el+sistema");
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        String action = request.getParameter("action");
+
+        System.out.println("=== PETICIÓN POST RECIBIDA ===");
+        System.out.println("Action: " + action);
+
+        try {
+            if ("guardar".equals(action)) {
+                guardarCita(request, response);
+            } else if ("actualizar".equals(action)) {
+                actualizarCita(request, response);
+            } else {
+                listarCitas(request, response);
+            }
+        } catch (Exception e) {
+            System.out.println("ERROR en doPost: " + e.getMessage());
+            e.printStackTrace();
+            response.sendRedirect("citas-medicas?error=Error+al+procesar+la+cita");
         }
     }
 
     private void listarCitas(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        try {
-            List<CitaMedica> listaCitas = citaDAO.obtenerTodasCitas();
-            request.setAttribute("listaCitas", listaCitas);
-        } catch (Exception e) {
-            // Si hay error con la BD, mostrar datos de prueba
-            System.out.println("Error obteniendo citas de BD, mostrando datos de prueba");
-            mostrarDatosPrueba(request, response);
-            return;
-        }
+        List<CitaMedica> listaCitas = memoryDAO.obtenerTodasCitas();
+        List<Paciente> listaPacientes = pacienteDAO.obtenerTodosPacientes();
 
-        RequestDispatcher dispatcher = request.getRequestDispatcher("/citasMedicas.jsp");
-        dispatcher.forward(request, response);
-    }
+        request.setAttribute("listaCitas", listaCitas);
+        request.setAttribute("listaPacientes", listaPacientes);
+        request.setAttribute("fuenteDatos", "memoria temporal");
 
-    private void mostrarDatosPrueba(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+        System.out.println("Enviando " + listaCitas.size() + " citas a la vista");
+        System.out.println("Enviando " + listaPacientes.size() + " pacientes a la vista");
 
-        List<CitaMedica> citasPrueba = new ArrayList<>();
-
-        // Crear citas de prueba
-        CitaMedica cita1 = new CitaMedica();
-        cita1.setIdCita(1);
-        cita1.setIdExpediente(101);
-        cita1.setIdMedico(1);
-        cita1.setFechaHoraCita(LocalDateTime.now().plusDays(1));
-        cita1.setTipoCita("Consulta General");
-        cita1.setEstado("Pendiente");
-        citasPrueba.add(cita1);
-
-        CitaMedica cita2 = new CitaMedica();
-        cita2.setIdCita(2);
-        cita2.setIdExpediente(102);
-        cita2.setIdMedico(2);
-        cita2.setFechaHoraCita(LocalDateTime.now().plusDays(2));
-        cita2.setTipoCita("Control");
-        cita2.setEstado("Confirmada");
-        citasPrueba.add(cita2);
-
-        CitaMedica cita3 = new CitaMedica();
-        cita3.setIdCita(3);
-        cita3.setIdExpediente(103);
-        cita3.setIdMedico(1);
-        cita3.setFechaHoraCita(LocalDateTime.now().plusHours(3));
-        cita3.setTipoCita("Emergencia");
-        cita3.setEstado("Completada");
-        citasPrueba.add(cita3);
-
-        request.setAttribute("listaCitas", citasPrueba);
         RequestDispatcher dispatcher = request.getRequestDispatcher("/citasMedicas.jsp");
         dispatcher.forward(request, response);
     }
@@ -112,36 +106,125 @@ public class CitaMedicaServlet extends HttpServlet {
     private void mostrarFormularioNuevaCita(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        // Por ahora redirigir a una página simple
-        response.getWriter().println("<html><body>");
-        response.getWriter().println("<h1>Formulario para Nueva Cita</h1>");
-        response.getWriter().println("<p>Esta funcionalidad estará disponible pronto</p>");
-        response.getWriter().println("<a href='citas-medicas'>Volver a Citas</a>");
-        response.getWriter().println("</body></html>");
+        System.out.println("Mostrando formulario para NUEVA cita");
+
+        // Obtener lista de pacientes para el combobox
+        List<Paciente> listaPacientes = pacienteDAO.obtenerTodosPacientes();
+        request.setAttribute("listaPacientes", listaPacientes);
+
+        RequestDispatcher dispatcher = request.getRequestDispatcher("/formCitaMedica.jsp");
+        dispatcher.forward(request, response);
     }
 
     private void mostrarFormularioEditarCita(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        response.getWriter().println("<html><body>");
-        response.getWriter().println("<h1>Editar Cita</h1>");
-        response.getWriter().println("<p>Esta funcionalidad estará disponible pronto</p>");
-        response.getWriter().println("<a href='citas-medicas'>Volver a Citas</a>");
-        response.getWriter().println("</body></html>");
+        int idCita = Integer.parseInt(request.getParameter("id"));
+        System.out.println("Mostrando formulario para EDITAR cita ID: " + idCita);
+
+        CitaMedica cita = memoryDAO.obtenerCitaPorId(idCita);
+        List<Paciente> listaPacientes = pacienteDAO.obtenerTodosPacientes();
+
+        if (cita != null) {
+            request.setAttribute("cita", cita);
+            request.setAttribute("listaPacientes", listaPacientes);
+            RequestDispatcher dispatcher = request.getRequestDispatcher("/formCitaMedica.jsp");
+            dispatcher.forward(request, response);
+        } else {
+            System.out.println("Cita no encontrada para edición: " + idCita);
+            response.sendRedirect("citas-medicas?error=Cita+no+encontrada");
+        }
+    }
+
+    private void guardarCita(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        try {
+            CitaMedica cita = extraerCitaDeRequest(request);
+            boolean exito = memoryDAO.insertarCita(cita);
+
+            if (exito) {
+                System.out.println("Cita guardada exitosamente, redirigiendo...");
+                response.sendRedirect("citas-medicas?success=Cita+agendada+exitosamente");
+            } else {
+                System.out.println("Error al guardar cita");
+                response.sendRedirect("citas-medicas?error=Error+al+agendar+la+cita");
+            }
+
+        } catch (Exception e) {
+            System.out.println("ERROR grave al guardar cita: " + e.getMessage());
+            response.sendRedirect("citas-medicas?error=Error+grave+al+agendar+la+cita");
+        }
+    }
+
+    private void actualizarCita(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        try {
+            int idCita = Integer.parseInt(request.getParameter("idCita"));
+            CitaMedica cita = extraerCitaDeRequest(request);
+            cita.setIdCita(idCita);
+
+            boolean exito = memoryDAO.actualizarCita(cita);
+
+            if (exito) {
+                System.out.println("Cita actualizada exitosamente");
+                response.sendRedirect("citas-medicas?success=Cita+actualizada+exitosamente");
+            } else {
+                System.out.println("Error al actualizar cita");
+                response.sendRedirect("citas-medicas?error=Error+al+actualizar+la+cita");
+            }
+
+        } catch (Exception e) {
+            System.out.println("ERROR grave al actualizar cita: " + e.getMessage());
+            response.sendRedirect("citas-medicas?error=Error+grave+al+actualizar+la+cita");
+        }
     }
 
     private void eliminarCita(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        // Simular eliminación exitosa
-        response.sendRedirect("citas-medicas?success=Cita+eliminada+exitosamente");
+        try {
+            int idCita = Integer.parseInt(request.getParameter("id"));
+            boolean exito = memoryDAO.eliminarCita(idCita);
+
+            if (exito) {
+                System.out.println("Cita eliminada exitosamente");
+                response.sendRedirect("citas-medicas?success=Cita+eliminada+exitosamente");
+            } else {
+                System.out.println("Error al eliminar cita");
+                response.sendRedirect("citas-medicas?error=Error+al+eliminar+la+cita");
+            }
+
+        } catch (Exception e) {
+            System.out.println("ERROR grave al eliminar cita: " + e.getMessage());
+            response.sendRedirect("citas-medicas?error=Error+grave+al+eliminar+la+cita");
+        }
     }
 
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+    private CitaMedica extraerCitaDeRequest(HttpServletRequest request) {
+        CitaMedica cita = new CitaMedica();
 
-        // Simular guardado exitoso
-        response.sendRedirect("citas-medicas?success=Cita+guardada+exitosamente");
+        cita.setIdExpediente(Integer.parseInt(request.getParameter("idExpediente")));
+        cita.setIdMedico(Integer.parseInt(request.getParameter("idMedico")));
+
+        // Convertir fecha y hora del formulario
+        String fechaHoraStr = request.getParameter("fechaHoraCita");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+        cita.setFechaHoraCita(LocalDateTime.parse(fechaHoraStr, formatter));
+
+        cita.setTipoCita(request.getParameter("tipoCita"));
+        cita.setSintomas(request.getParameter("sintomas"));
+        cita.setEstado(request.getParameter("estado"));
+        cita.setObservaciones(request.getParameter("observaciones"));
+
+        System.out.println("Cita extraída del formulario:");
+        System.out.println("- Expediente: " + cita.getIdExpediente());
+        System.out.println("- Médico: " + cita.getIdMedico());
+        System.out.println("- Fecha: " + cita.getFechaHoraCita());
+        System.out.println("- Tipo: " + cita.getTipoCita());
+        System.out.println("- Estado: " + cita.getEstado());
+
+        return cita;
     }
 }
