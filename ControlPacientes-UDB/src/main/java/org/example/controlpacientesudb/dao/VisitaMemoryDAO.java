@@ -3,7 +3,9 @@ package org.example.controlpacientesudb.dao;
 import org.example.controlpacientesudb.modelo.entidades.Visita;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -15,18 +17,30 @@ public class VisitaMemoryDAO {
         agregarVisitasEjemplo();
     }
 
+    // AGREGA ESTE MÉTODO A TU CLASE VisitaMemoryDAO
+    public Map<Integer, String> obtenerMedicos() {
+        Map<Integer, String> medicos = new HashMap<>();
+        medicos.put(1, "Dr. Juan Pérez");
+        medicos.put(2, "Dra. Ana Gómez");
+        medicos.put(3, "Dr. Carlos Rodríguez");
+        medicos.put(4, "Dra. María López");
+        medicos.put(5, "Dr. Roberto Sánchez");
+        return medicos;
+    }
+
+    // El resto de tus métodos existentes...
     public List<Visita> obtenerTodasVisitas() {
         return new ArrayList<>(visitasEnMemoria);
     }
 
-    public List<Visita> buscarVisitasConFiltros(Integer idExpediente, LocalDateTime fechaDesde, LocalDateTime fechaHasta, String triage) {
+    public List<Visita> buscarVisitasConFiltros(Integer idPaciente, LocalDateTime fechaDesde, LocalDateTime fechaHasta, String triage) {
         List<Visita> visitasFiltradas = visitasEnMemoria.stream()
                 .filter(visita -> {
                     boolean coincide = true;
 
-                    // Filtro por expediente
-                    if (idExpediente != null) {
-                        coincide = coincide && (visita.getIdExpediente() == idExpediente);
+                    // Filtro por paciente (antes era expediente)
+                    if (idPaciente != null) {
+                        coincide = coincide && (visita.getIdExpediente() == idPaciente);
                     }
 
                     // Filtro por fecha desde
@@ -49,7 +63,7 @@ public class VisitaMemoryDAO {
                 .collect(Collectors.toList());
 
         System.out.println("Visitas filtradas: " + visitasFiltradas.size() +
-                " | Filtros: Expediente=" + idExpediente +
+                " | Filtros: Paciente=" + idPaciente +
                 ", Desde=" + fechaDesde +
                 ", Hasta=" + fechaHasta +
                 ", Triage=" + triage);
